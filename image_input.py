@@ -11,23 +11,39 @@ import math
 def getfrom_raf(file,is_train,ratio=0):
     images = []
     labels = []
+    pnlabels=[]
     temp = []
     for line in open(file):
         if is_train:
             if(line.split('\\')[-1][0:5]=='train'):
                 images.append(line.split(' ')[0])
-                labels = np.append(labels, int(line.split(' ')[1][-2]))
+                true_label = int(line.split(' ')[1][-2])
+                labels = np.append(labels, true_label)
+#                添加正负表情labels
+                if true_label==1 or true_label==5 or true_label==7:
+                    pnlabels = np.append(pnlabels, 0)
+                else:
+                    pnlabels = np.append(pnlabels, 1)
         else:
             #test_data
             if(line.split('\\')[-1][0:4]=='test'):
                 images.append(line.split(' ')[0])
-                labels = np.append(labels, int(line.split(' ')[1][-2]))
-    temp=np.array([images,labels])
+                true_label = int(line.split(' ')[1][-2])
+                labels = np.append(labels, true_label)
+#                添加test正负表情labels
+                if true_label==1 or true_label==5 or true_label==7:
+                    pnlabels = np.append(pnlabels, 0)
+                else:
+                    pnlabels = np.append(pnlabels, 1)
+                
+                
+    temp=np.array([images, labels, pnlabels])
     temp=temp.transpose()
     np.random.shuffle(temp)
     
     images_list = temp[:, 0]
     label_list = temp[:, 1]
+    pnlabels_list = temp[:, 2]
     n_sample = len(label_list)
     if is_train:
         n_val = math.ceil(n_sample*ratio)
@@ -35,15 +51,17 @@ def getfrom_raf(file,is_train,ratio=0):
         tra_images = images_list[0:n_train]
         tra_labels = label_list[0:n_train]
         tra_labels = [int(float(i)-1) for i in tra_labels]
+        tra_pnlabels = pnlabels_list[0:n_train] 
         val_images = images_list[n_train:-1]
         val_labels = label_list[n_train:-1]
         val_labels = [int(float(i)-1) for i in val_labels]
+        val_pnlabels = pnlabels_list[n_train:-1]
         
-        return tra_images,tra_labels,val_images,val_labels
+        return tra_images,tra_labels,tra_pnlabels,val_images,val_labels,val_pnlabels
     else:
         labels_list = [int(float(i)-1) for i in label_list]
         
-    return images_list,labels_list
+    return images_list,labels_list,pnlabels_list
                                                               
                 
 def get_file(file_dir,is_train,ratio):
