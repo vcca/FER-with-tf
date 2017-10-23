@@ -30,6 +30,7 @@ MAX_STEP = 10000 # with current parameters, it is suggested to use MAX_STEP>10k
 learning_rate = 0.01 # with current parameters, it is suggested to use learning rate<0.0001
 x = tf.placeholder(tf.float32, shape=[BATCH_SIZE, IMG_W, IMG_H, 1])
 y_ = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
+pn_y = tf.placeholder(tf.int32, shape=[BATCH_SIZE]) #p_n label 占位符
 log_dir = 'D:\Leung\lenet5\log\log1017_cnn_c0.3'
 #log_dir = 'D:\Leung\lenet5\log\log0915_raf'
 #file_dir='D:\Leung\lenet5\data\list_patition_label.txt'
@@ -43,36 +44,48 @@ def train():
    # tes_dir='/media/vcca/新梗结衣/emotion/ck48_tes'
     is_training = tf.placeholder(tf.bool)
     train, train_label,val, val_label= image_input.getfrom_raf(file_dir, True,ratio=0.1)
-
-#    train, train_label, val, val_label = image_input.get_file(train_dir,True,0.1)
-    train_batch, train_label_batch = image_input.get_batch(train,
-                                                  train_label,
-                                                  BATCH_SIZE,
-                                                  True)
+#    get label as label_batch
+    train_batch, train_label_batch, train_pnlabel_batch = image_input.get_batch(train,
+                                                                                train_label,
+                                                                                BATCH_SIZE,
+                                                                                True)
     
-    val_batch, val_label_batch = image_input.get_batch(val,
-                                                  val_label,
-                                                  BATCH_SIZE,
-                                                  False)
+    val_batch, val_label_batch, val_pnlabel_batch = image_input.get_batch(val,
+                                                                          val_label,
+                                                                          BATCH_SIZE,
+                                                                          False)
     #pre_logits output nodes 1024
-    pre_logits = list_model.inference(x, N_CLASSES, is_train=is_training,keep_prob=keep_prob)
-    #center_loss and center_op
-    center_loss, centers_update_op = list_model.center_loss(pre_logits,y_,0.5,7)
+    pre_logits = list_model.inference(x, is_train=is_training,keep_prob=keep_prob)
+#    fc_exp layer
+    exp_logits = tool.FC_Layer('fc_exp', pre_logits, out_nodes=1024) 
+#   logits_7 = tool.FC_Layer('fc_7', exp_logits, out_nodes=7) #logits for 7-expression
+#   fc_pn layer
+    pn_logits = tool.FC_Layer('fc_pn', pre_logits, out_nodes=1024) 
+    logits_2 = tool.FC_Layer('fc_7', pn_logits, out_nodes=2) #logits for 2-expression
+#    total fc and total loss
+    concat_logits = tf.concat(1, [exp_logits,pn_logits])
+    logits_pred = tool.FC_Layer('fc_concate', concat_logits, out_nodes=7)    
+#    loss_exp = list_model.losses(logits_7, y_)
+    loss_pn = list_model.losses(logits_2, pn_y)
+    loss_pred = list_model.losses(logits_pred, y_)
     
-    logits = tool.FC_Layer('fc7',pre_logits,out_nodes=7)
-    loss = list_model.losses(logits, y_)
-    total_loss = loss + 0.05 * center_loss
+    center_loss, centers_update_op = list_model.center_loss(concat_logits, y_, 0.5, 7)
+    
+    total_loss = loss_pred + loss_pn + 0.05 * center_loss
     
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies([centers_update_op]):
-        train_op ,lr_rate= list_model.training(loss, learning_rate) 
-    acc = list_model.evaluation(logits, y_)
+        train_op ,lr_rate= list_model.training(total_loss, learning_rate) 
     
+#    acc_exp = list_model.evaluation(logits_7, y_) #acc for 7-expression
+    acc_pn = list_model.evaluation(logits_2, pn_y) # acc for positive and negative expression
+    acc_pred = list_model.evaluation(logits_pred, y_) #acc for 7-expression
+
 #    with tf.Session() as sess:        
     with tf.Session(config=tf.ConfigProto(
       allow_soft_placement=True, log_device_placement=True)) as sess:
 #        with tf.device("/gpu:0"):
-            #store variable in the batch_norm
+#        store variable in the batch_norm
         var_list = tf.trainable_variables()
         g_list = tf.global_variables()
         bn_moving_vars = [g for g in g_list if 'moving_mean' in g.name]
@@ -95,21 +108,33 @@ def train():
                         break
 #                    input pipleline
 #                _, tra_loss,tra_acc = sess.run([train_op, loss, acc])
-                tra_images, tra_labels = sess.run([train_batch, train_label_batch])
-                _,_ops,tra_loss, tra_acc, summary_str ,lr= sess.run([train_op, update_ops , total_loss, acc, summary_op,lr_rate],
-                                                feed_dict={x : tra_images, y_ : tra_labels, is_training : True,keep_prob : 0.4})
+                tra_images, tra_labels, tra_pnlabels = sess.run([train_batch, train_label_batch, train_pnlabel_batch])
+                _,_ops,tra_loss,tra_loss_exp,tra_loss_pn,tra_acc,tra_acc_pn,summary_str = sess.run([train_op,
+                                                                                                    update_ops,
+                                                                                                    total_loss,
+                                                                                                    loss_pred,
+                                                                                                    loss_pn,
+                                                                                                    acc_pred,
+                                                                                                    acc_pn,
+                                                                                                    summary_op],
+                                                                                                    feed_dict={x:tra_images,
+                                                                                                               y_ : tra_labels,
+                                                                                                               pn_y: tra_pnlabels,
+                                                                                                               is_training:True,
+                                                                                                               keep_prob : 0.4})
                 if step % 10 == 0:
-                    print('%s,Step %d, train loss = %.6f, train accuracy = %.5f ,lr = %f' %(datetime.now(),step, tra_loss, tra_acc,lr))
+                    print('%s,Step %d, pn train loss = %.6f, pn train accuracy = %.6f' %(datetime.now(),step,tra_loss_pn,tra_acc_pn))
+                    print('%s,Step %d, exp train loss = %.6f, exp train accuracy = %.6f, total loss = %.6f' %(datetime.now(),step,tra_loss_exp,tra_acc,tra_loss))
                     # summary_str = sess.run(summary_op)
                     train_writer.add_summary(summary_str, step)
                     
                 if step % 100 == 0 or (step + 1) == MAX_STEP:
 #                        sess.run(val_batch)
 #                        _, val_loss,val_acc = sess.run([train_op, loss, acc])
-                    val_images, val_labels = sess.run([val_batch, val_label_batch])
-                    val_loss, val_acc = sess.run([total_loss, acc], 
-                                                 feed_dict={x:val_images, y_:val_labels,is_training:False,keep_prob : 1.0})
-                    print('**%s, Step %d, val loss = %.6f, val accuracy = %.5f  **' %(datetime.now(),step, val_loss, val_acc))
+                    val_images, val_labels, val_pnlabels = sess.run([val_batch, val_label_batch,val_pnlabel_batch])
+                    val_loss, val_acc = sess.run([total_loss, tra_acc], 
+                                                 feed_dict={x:val_images, y_:val_labels, pn_y:val_pnlabels, is_training:False, keep_prob : 1.0})
+                    print('*%s, Step %d, val total loss = %.6f, val accuracy = %.5f  **' %(datetime.now(),step, val_loss, val_acc))
 #                    summary_str = sess.run(summary_op)
 #                    val_writer.add_summary(summary_str, step)  
                                     
@@ -137,12 +162,17 @@ def evaluate():
         tes_images,tes_labels = image_input.getfrom_raf(file_dir,False)
 #        tes_images,tes_labels = image_input.get_file(tes_dir,False,0)
         n_test=len(tes_labels)
-        tes_batch,label_batch = image_input.get_batch(tes_images,
-                                                      tes_labels,
-                                                      BATCH_SIZE,
-                                                      False)
-        pre_logits = list_model.inference(tes_batch,N_CLASSES,is_train=is_training,keep_prob=keep_prob)
-        logits = tool.FC_Layer('fc7',pre_logits,out_nodes=7)
+        tes_batch,label_batch,pn_label_batch = image_input.get_batch(tes_images,
+                                                                     tes_labels,
+                                                                     BATCH_SIZE,
+                                                                     False)
+        pre_logits = list_model.inference(x, is_train=is_training, keep_prob=keep_prob)
+        
+        exp_logits = tool.FC_Layer('fc_exp', pre_logits, out_nodes=1024) 
+        pn_logits = tool.FC_Layer('fc_pn', pre_logits, out_nodes=1024)
+        concat_logits = tf.concat(1, [exp_logits,pn_logits])
+        logits = tool.FC_Layer('fc7',concat_logits,out_nodes=7)
+        
         y_pred = tf.argmax(logits,1)
         top_k_op = tf.nn.in_top_k(logits, label_batch, 1)
 #        class_pred = np.zeros(shape=n_test, dtype=np.int)

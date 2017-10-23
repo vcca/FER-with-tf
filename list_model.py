@@ -10,7 +10,7 @@ from sklearn.metrics import confusion_matrix
 import tool
 #%%
 class_names=['Anger','Disgust','Fear','Happiness','Sadness','Surprise','Neutral']
-def inference(x, n_classes,is_train,keep_prob):
+def inference(x,is_train,keep_prob):
 
     #conv1, shape = [kernel size, kernel size, channels, kernel numbers]
     x = tool.conv('conv1', x, 64, scale=0.0004,kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
@@ -33,7 +33,7 @@ def inference(x, n_classes,is_train,keep_prob):
     #fc
     # x = tf.nn.dropout(x, keep_prob=0.5)
     
-    x = tool.FC_Layer('fc6', x,scale=0.0004,out_nodes=2048)
+    x = tool.FC_Layer('fc6', x,scale=0.0004,out_nodes=1024)
 
     x = tf.layers.batch_normalization(x,training=is_train)
 
