@@ -52,12 +52,17 @@ def getfrom_raf(file,is_train,ratio=0):
         tra_labels = label_list[0:n_train]
         tra_labels = [int(float(i)-1) for i in tra_labels]
         tra_pnlabels = pnlabels_list[0:n_train] 
+#        contatenate tra_labels and tra_pnlabels
+        tra_labels = np.column_stack((tra_labels,tra_pnlabels))
+        
         val_images = images_list[n_train:-1]
         val_labels = label_list[n_train:-1]
         val_labels = [int(float(i)-1) for i in val_labels]
         val_pnlabels = pnlabels_list[n_train:-1]
+#        contatenate val_labels and val_pnlabels
+        val_labels = np.column_stack((val_labels,val_pnlabels))
         
-        return tra_images,tra_labels,tra_pnlabels,val_images,val_labels,val_pnlabels
+        return tra_images,tra_labels,val_images,val_labels
     else:
         labels_list = [int(float(i)-1) for i in label_list]
         
@@ -143,8 +148,11 @@ def get_batch(image,label,batch_size,is_train):
                                                   batch_size= batch_size,
                                                   num_threads= 64, 
                                                   capacity = 2000)
-    
-    label_batch = tf.reshape(label_batch, [batch_size])
+#    separate the label_batch
+    ex_label_batch = label_batch[:,0]
+    pn_label_batch = label_batch[:,1]
+    ex_label_batch = tf.reshape(ex_label_batch, [batch_size])
+    pn_label_batch = tf.reshape(pn_label_batch, [batch_size])
     image_batch = tf.cast(image_batch, tf.float32)
     
-    return image_batch, label_batch
+    return image_batch, ex_label_batch, pn_label_batch
