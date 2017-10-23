@@ -28,6 +28,7 @@ IMG_H = 48
 BATCH_SIZE = 32
 MAX_STEP = 10000 # with current parameters, it is suggested to use MAX_STEP>10k
 learning_rate = 0.01 # with current parameters, it is suggested to use learning rate<0.0001
+EARLY_STOP_PATIENCE = 400
 x = tf.placeholder(tf.float32, shape=[BATCH_SIZE, IMG_W, IMG_H, 1])
 y_ = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
 pn_y = tf.placeholder(tf.int32, shape=[BATCH_SIZE]) #p_n label 占位符
@@ -42,6 +43,7 @@ def train():
 #    train_dir='/media/vcca/新梗结衣/extendck48_chose'
 #    train_dir='D:\Leung\lenet5\data\ck48_train'
    # tes_dir='/media/vcca/新梗结衣/emotion/ck48_tes'
+    bst_val_loss = 10.0
     is_training = tf.placeholder(tf.bool)
     train, train_label,val, val_label= image_input.getfrom_raf(file_dir, True,ratio=0.1)
 #    get label as label_batch
@@ -141,6 +143,16 @@ def train():
                 if step % 1000 == 0 or (step + 1) == MAX_STEP:
                     checkpoint_path = os.path.join(log_dir, 'model.ckpt')
                     saver.save(sess, checkpoint_path, global_step=step)
+
+                #Early stopping
+                if val_loss < bst_val_loss:
+                    bst_val_loss = val_loss
+                    current_step = step
+                    checkpoint_path = os.path.join(log_dir, 'model.ckpt')
+                    saver.save(sess, checkpoint_path, global_step=step)
+                elif (step - current_step) >= EARLY_STOP_PATIENCE:
+                    print('early stopping')
+                    break
                     
         except tf.errors.OutOfRangeError:
             print('Done training -- epoch limit reached')
