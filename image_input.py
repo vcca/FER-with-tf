@@ -52,6 +52,7 @@ def getfrom_raf(file,is_train,ratio=0):
         tra_labels = label_list[0:n_train]
         tra_labels = [int(float(i)-1) for i in tra_labels]
         tra_pnlabels = pnlabels_list[0:n_train] 
+        tra_pnlabels = [int(float(i)) for i in tra_pnlabels]
 #        contatenate tra_labels and tra_pnlabels
         tra_labels = np.column_stack((tra_labels,tra_pnlabels))
         
@@ -59,6 +60,7 @@ def getfrom_raf(file,is_train,ratio=0):
         val_labels = label_list[n_train:-1]
         val_labels = [int(float(i)-1) for i in val_labels]
         val_pnlabels = pnlabels_list[n_train:-1]
+        val_pnlabels = [int(float(i)) for i in val_pnlabels]
 #        contatenate val_labels and val_pnlabels
         val_labels = np.column_stack((val_labels,val_pnlabels))
         
@@ -130,7 +132,7 @@ def get_batch(image,label,batch_size,is_train):
     image = tf.image.resize_image_with_crop_or_pad(image, 48, 48)
     if is_train:
         image = tf.image.random_flip_left_right(image)
-        image = tf.image.random_brightness(image, max_delta=0.2)
+        image = tf.image.random_brightness(image, max_delta=0.4)
 #        image = tf.image.random_contrast(image,lower=0.9,upper=1.1)
 #        image = tf.contrib.keras.preprocessing.image.random_rotation(image,20)
 #        image = tf_image.rotate(image,

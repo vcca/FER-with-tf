@@ -20,7 +20,7 @@ from sklearn.svm import SVC
 
 #%%
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 keep_prob = tf.placeholder("float")
 N_CLASSES = 7
 IMG_W = 48  # resize the image, if the input image is too large, training will be very slow.
@@ -28,11 +28,11 @@ IMG_H = 48
 BATCH_SIZE = 32
 MAX_STEP = 10000 # with current parameters, it is suggested to use MAX_STEP>10k
 learning_rate = 0.01 # with current parameters, it is suggested to use learning rate<0.0001
-EARLY_STOP_PATIENCE = 400
+EARLY_STOP_PATIENCE = 1000
 x = tf.placeholder(tf.float32, shape=[BATCH_SIZE, IMG_W, IMG_H, 1])
 y_ = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
 pn_y = tf.placeholder(tf.int32, shape=[BATCH_SIZE]) #p_n label 占位符
-log_dir = 'D:\Leung\lenet5\log\log1017_cnn_c0.3'
+log_dir = 'D:\Leung\lenet10\log\log1024_1'
 #log_dir = 'D:\Leung\lenet5\log\log0915_raf'
 #file_dir='D:\Leung\lenet5\data\list_patition_label.txt'
 file_dir='D:\Leung\RAF-DB\list_patition_label.txt'
@@ -65,7 +65,7 @@ def train():
     pn_logits = tool.FC_Layer('fc_pn', pre_logits, out_nodes=1024) 
     logits_2 = tool.FC_Layer('fc_7', pn_logits, out_nodes=2) #logits for 2-expression
 #    total fc and total loss
-    concat_logits = tf.concat(1, [exp_logits,pn_logits])
+    concat_logits = tf.concat([exp_logits, pn_logits], 1)
     logits_pred = tool.FC_Layer('fc_concate', concat_logits, out_nodes=7)    
 #    loss_exp = list_model.losses(logits_7, y_)
     loss_pn = list_model.losses(logits_2, pn_y)
@@ -86,7 +86,7 @@ def train():
 #    with tf.Session() as sess:        
     with tf.Session(config=tf.ConfigProto(
       allow_soft_placement=True, log_device_placement=True)) as sess:
-#        with tf.device("/gpu:0"):
+#      with tf.device("/gpu:1"):
 #        store variable in the batch_norm
         var_list = tf.trainable_variables()
         g_list = tf.global_variables()
@@ -134,7 +134,7 @@ def train():
 #                        sess.run(val_batch)
 #                        _, val_loss,val_acc = sess.run([train_op, loss, acc])
                     val_images, val_labels, val_pnlabels = sess.run([val_batch, val_label_batch,val_pnlabel_batch])
-                    val_loss, val_acc = sess.run([total_loss, tra_acc], 
+                    val_loss, val_acc = sess.run([total_loss, acc_pred], 
                                                  feed_dict={x:val_images, y_:val_labels, pn_y:val_pnlabels, is_training:False, keep_prob : 1.0})
                     print('*%s, Step %d, val total loss = %.6f, val accuracy = %.5f  **' %(datetime.now(),step, val_loss, val_acc))
 #                    summary_str = sess.run(summary_op)
@@ -145,14 +145,14 @@ def train():
                     saver.save(sess, checkpoint_path, global_step=step)
 
                 #Early stopping
-                if val_loss < bst_val_loss:
+                if val_loss < bst_val_loss and step > 6000:
                     bst_val_loss = val_loss
-                    current_step = step
+#                    current_step = step
                     checkpoint_path = os.path.join(log_dir, 'model.ckpt')
                     saver.save(sess, checkpoint_path, global_step=step)
-                elif (step - current_step) >= EARLY_STOP_PATIENCE:
-                    print('early stopping')
-                    break
+#                elif (step - current_step) >= EARLY_STOP_PATIENCE:
+#                    print('early stopping')
+#                    break
                     
         except tf.errors.OutOfRangeError:
             print('Done training -- epoch limit reached')

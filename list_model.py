@@ -57,7 +57,7 @@ def losses(logits, labels):
         loss = L2_loss + cross_entropy_loss
         tf.summary.scalar(scope.name+'/L2_loss', L2_loss)
         tf.summary.scalar(scope.name+'/loss', loss)
-    return cross_entropy_loss
+    return loss
 
 #%%
 def center_loss(features, labels, alpha, num_classes):
