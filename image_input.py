@@ -66,9 +66,11 @@ def getfrom_raf(file,is_train,ratio=0):
         
         return tra_images,tra_labels,val_images,val_labels
     else:
-        labels_list = [int(float(i)-1) for i in label_list]
-        
-    return images_list,labels_list,pnlabels_list
+        test_labels = [int(float(i)-1) for i in label_list]
+        test_pnlabels = [int(float(i)) for i in pnlabels_list]
+#        contatenate test_labels and test_pnlabels
+        test_labels = np.column_stack((test_labels,test_pnlabels))
+        return images_list,test_labels
                                                               
                 
 def get_file(file_dir,is_train,ratio):

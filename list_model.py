@@ -33,7 +33,7 @@ def inference(x,is_train,keep_prob):
     #fc
     # x = tf.nn.dropout(x, keep_prob=0.5)
     
-    x = tool.FC_Layer('fc6', x,scale=0.0004,out_nodes=1024)
+    x = tool.FC_Layer('fc6', x,scale=0.0004,out_nodes=2048)
 
     x = tf.layers.batch_normalization(x,training=is_train)
 

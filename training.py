@@ -26,13 +26,13 @@ N_CLASSES = 7
 IMG_W = 48  # resize the image, if the input image is too large, training will be very slow.
 IMG_H = 48   
 BATCH_SIZE = 32
-MAX_STEP = 10000 # with current parameters, it is suggested to use MAX_STEP>10k
+MAX_STEP = 16000 # with current parameters, it is suggested to use MAX_STEP>10k
 learning_rate = 0.01 # with current parameters, it is suggested to use learning rate<0.0001
 EARLY_STOP_PATIENCE = 1000
 x = tf.placeholder(tf.float32, shape=[BATCH_SIZE, IMG_W, IMG_H, 1])
 y_ = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
 pn_y = tf.placeholder(tf.int32, shape=[BATCH_SIZE]) #p_n label 占位符
-log_dir = 'D:\Leung\lenet10\log\log1024_1'
+log_dir = 'D:\Leung\lenet10\log\log1024_2'
 #log_dir = 'D:\Leung\lenet5\log\log0915_raf'
 #file_dir='D:\Leung\lenet5\data\list_patition_label.txt'
 file_dir='D:\Leung\RAF-DB\list_patition_label.txt'
@@ -62,7 +62,7 @@ def train():
     exp_logits = tool.FC_Layer('fc_exp', pre_logits, out_nodes=1024) 
 #   logits_7 = tool.FC_Layer('fc_7', exp_logits, out_nodes=7) #logits for 7-expression
 #   fc_pn layer
-    pn_logits = tool.FC_Layer('fc_pn', pre_logits, out_nodes=1024) 
+    pn_logits = tool.FC_Layer('fc_pn', pre_logits, out_nodes=512) 
     logits_2 = tool.FC_Layer('fc_7', pn_logits, out_nodes=2) #logits for 2-expression
 #    total fc and total loss
     concat_logits = tf.concat([exp_logits, pn_logits], 1)
@@ -73,7 +73,7 @@ def train():
     
     center_loss, centers_update_op = list_model.center_loss(concat_logits, y_, 0.5, 7)
     
-    total_loss = loss_pred + loss_pn + 0.05 * center_loss
+    total_loss = loss_pred + 0.5 * loss_pn + 0.05 * center_loss
     
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies([centers_update_op]):
@@ -140,7 +140,7 @@ def train():
 #                    summary_str = sess.run(summary_op)
 #                    val_writer.add_summary(summary_str, step)  
                                     
-                if step % 1000 == 0 or (step + 1) == MAX_STEP:
+                if step % 2000 == 0 or (step + 1) == MAX_STEP:
                     checkpoint_path = os.path.join(log_dir, 'model.ckpt')
                     saver.save(sess, checkpoint_path, global_step=step)
 
@@ -178,12 +178,13 @@ def evaluate():
                                                                      tes_labels,
                                                                      BATCH_SIZE,
                                                                      False)
-        pre_logits = list_model.inference(x, is_train=is_training, keep_prob=keep_prob)
+        pre_logits = list_model.inference(tes_batch, is_train=is_training, keep_prob=keep_prob)
         
         exp_logits = tool.FC_Layer('fc_exp', pre_logits, out_nodes=1024) 
-        pn_logits = tool.FC_Layer('fc_pn', pre_logits, out_nodes=1024)
-        concat_logits = tf.concat(1, [exp_logits,pn_logits])
-        logits = tool.FC_Layer('fc7',concat_logits,out_nodes=7)
+        pn_logits = tool.FC_Layer('fc_pn', pre_logits, out_nodes=512)
+        concat_logits = tf.concat([exp_logits,pn_logits], 1)
+        
+        logits = tool.FC_Layer('fc_concate',concat_logits,out_nodes=7)
         
         y_pred = tf.argmax(logits,1)
         top_k_op = tf.nn.in_top_k(logits, label_batch, 1)
@@ -193,7 +194,7 @@ def evaluate():
             print("Reading checkpoints...")
             ckpt = tf.train.get_checkpoint_state(log_dir)
             if ckpt and ckpt.model_checkpoint_path:
-                ckpt.model_checkpoint_path='D:\Leung\lenet5\log\log1017_cnn_c0.3\model.ckpt-6000'
+#                ckpt.model_checkpoint_path='D:\Leung\lenet10\log\log1024_2\model.ckpt-9000'
                 global_step = ckpt.model_checkpoint_path.split('\\')[-1].split('-')[-1]
                 saver.restore(sess, ckpt.model_checkpoint_path)
                 print('Loading success, global_step is %s' % global_step)
