@@ -145,3 +145,20 @@ def plot_confusion_matrix(class_pred,class_test):
         
     class_numbers = [" ({0})".format(i) for i in range(7)]
     print("".join(class_numbers))
+def focal_loss(labels, logits, gamma, alpha, normalize = True):
+
+#dengdan/test_tf_models
+    labels = tf.where(labels > 0, tf.ones_like(labels), tf.zeros_like(labels))
+    labels = tf.cast(labels, tf.float32)
+    probs = tf.sigmoid(logits)
+    ce_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels = labels, logits = logits)
+
+    alpha_t = tf.ones_like(logits) * alpha
+    alpha_t = tf.where(labels > 0, alpha_t, 1.0 - alpha_t)
+    probs_t = tf.where(labels > 0, probs, 1.0 - probs)
+
+    focal_matrix = alpha_t * tf.pow((1.0 - probs_t), gamma)
+    loss = focal_matrix * ce_loss
+
+    loss = tf.reduce_mean(loss)
+	return loss
