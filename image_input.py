@@ -20,7 +20,7 @@ def getfrom_raf(file,is_train,ratio=0):
                 true_label = int(line.split(' ')[1][-2])
                 labels = np.append(labels, true_label)
 #                添加正负表情labels
-                if true_label==1 or true_label==5 or true_label==7:
+                if true_label==1 or true_label==4 or true_label==7:
                     pnlabels = np.append(pnlabels, 0)
                 else:
                     pnlabels = np.append(pnlabels, 1)
@@ -31,7 +31,7 @@ def getfrom_raf(file,is_train,ratio=0):
                 true_label = int(line.split(' ')[1][-2])
                 labels = np.append(labels, true_label)
 #                添加test正负表情labels
-                if true_label==1 or true_label==5 or true_label==7:
+                if true_label==1 or true_label==4 or true_label==7:
                     pnlabels = np.append(pnlabels, 0)
                 else:
                     pnlabels = np.append(pnlabels, 1)
@@ -52,6 +52,7 @@ def getfrom_raf(file,is_train,ratio=0):
         tra_labels = label_list[0:n_train]
         tra_labels = [int(float(i)-1) for i in tra_labels]
         tra_pnlabels = pnlabels_list[0:n_train] 
+        tra_pnlabels = [int(float(i)) for i in tra_pnlabels]
 #        contatenate tra_labels and tra_pnlabels
         tra_labels = np.column_stack((tra_labels,tra_pnlabels))
         
@@ -59,14 +60,17 @@ def getfrom_raf(file,is_train,ratio=0):
         val_labels = label_list[n_train:-1]
         val_labels = [int(float(i)-1) for i in val_labels]
         val_pnlabels = pnlabels_list[n_train:-1]
+        val_pnlabels = [int(float(i)) for i in val_pnlabels]
 #        contatenate val_labels and val_pnlabels
         val_labels = np.column_stack((val_labels,val_pnlabels))
         
         return tra_images,tra_labels,val_images,val_labels
     else:
-        labels_list = [int(float(i)-1) for i in label_list]
-        
-    return images_list,labels_list,pnlabels_list
+        test_labels = [int(float(i)-1) for i in label_list]
+        test_pnlabels = [int(float(i)) for i in pnlabels_list]
+#        contatenate test_labels and test_pnlabels
+        test_labels = np.column_stack((test_labels,test_pnlabels))
+        return images_list,test_labels
                                                               
                 
 def get_file(file_dir,is_train,ratio):
@@ -130,7 +134,7 @@ def get_batch(image,label,batch_size,is_train):
     image = tf.image.resize_image_with_crop_or_pad(image, 48, 48)
     if is_train:
         image = tf.image.random_flip_left_right(image)
-        image = tf.image.random_brightness(image, max_delta=0.2)
+        image = tf.image.random_brightness(image, max_delta=0.4)
 #        image = tf.image.random_contrast(image,lower=0.9,upper=1.1)
 #        image = tf.contrib.keras.preprocessing.image.random_rotation(image,20)
 #        image = tf_image.rotate(image,
@@ -151,8 +155,17 @@ def get_batch(image,label,batch_size,is_train):
 #    separate the label_batch
     ex_label_batch = label_batch[:,0]
     pn_label_batch = label_batch[:,1]
-    ex_label_batch = tf.reshape(ex_label_batch, [batch_size])
-    pn_label_batch = tf.reshape(pn_label_batch, [batch_size])
+#    one-hot encoder
+    ex_classes = 7
+    pn_classes = 2
+    ex_label_batch = tf.one_hot(ex_label_batch, depth=ex_classes)
+    pn_label_batch = tf.one_hot(pn_label_batch, depth=pn_classes)
+    
+    ex_label_batch = tf.reshape(ex_label_batch, [batch_size,ex_classes])
+    pn_label_batch = tf.reshape(pn_label_batch, [batch_size,pn_classes])
+   
+#    ex_label_batch = tf.reshape(ex_label_batch, [batch_size])
+#    pn_label_batch = tf.reshape(pn_label_batch, [batch_size])
     image_batch = tf.cast(image_batch, tf.float32)
     
     return image_batch, ex_label_batch, pn_label_batch

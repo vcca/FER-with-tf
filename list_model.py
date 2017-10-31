@@ -9,31 +9,31 @@ import tensorflow as tf
 from sklearn.metrics import confusion_matrix
 import tool
 #%%
-class_names=['Anger','Disgust','Fear','Happiness','Sadness','Surprise','Neutral']
+class_names=['Surprise','Fear','Disgust','Happiness','Sadness','Anger','Neutral']
 def inference(x,is_train,keep_prob):
 
     #conv1, shape = [kernel size, kernel size, channels, kernel numbers]
-    x = tool.conv('conv1', x, 64, scale=0.0004,kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
+    x = tool.conv('conv1', x, 64, scale=0.0002,kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
     #pool1
     x = tool.pool('pool1', x, kernel=[1,2,2,1], strides=[1,2,2,1])
     #conv2
-    x = tool.conv('conv2', x, 96, scale=0.0004,kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
+    x = tool.conv('conv2', x, 96, scale=0.0002,kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
     #pool2
     x = tool.pool('pool2', x, kernel=[1,2,2,1], strides=[1,2,2,1])
     #conv3
-    x = tool.conv('conv3', x, 128, scale=0.0004, kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
+    x = tool.conv('conv3', x, 256, scale=0.0002, kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
     #conv4
 #    x = tool.conv('conv4', x, 128, scale=0.0001, kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
     #pool4
     x = tool.pool('pool4', x, kernel=[1,2,2,1], strides=[1,2,2,1])
     #conv5
-    x = tool.conv('conv5', x, 256, scale=0.0004,kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
+    x = tool.conv('conv5', x, 256, scale=0.0002,kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
 #    conv6
 #    x = tool.conv('conv6', x, 256, scale=0.0003, kernel_size=[3,3],stride=[1,1,1,1],is_train=is_train)
     #fc
     # x = tf.nn.dropout(x, keep_prob=0.5)
     
-    x = tool.FC_Layer('fc6', x,scale=0.0004,out_nodes=1024)
+    x = tool.FC_Layer('fc6', x,scale=0.0002,out_nodes=1024)
 
     x = tf.layers.batch_normalization(x,training=is_train)
 
@@ -47,22 +47,31 @@ def inference(x,is_train,keep_prob):
     return x
       
 #%%
-def losses(logits, labels):
+def losses(logits, labels,alpha=1,gamma=0):
 
     with tf.variable_scope('loss') as scope:
         L2_loss = tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
-        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits\
-                        (logits=logits, labels=labels, name='xentropy_per_example')
+#        use one-hot encoder
+        cross_entropy = tf.nn.softmax_cross_entropy_with_logits\
+                        (logits=logits, labels=labels, name='xentropy_per_example')        
+#        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits\
+#                        (logits=logits, labels=labels, name='xentropy_per_example')
         cross_entropy_loss = tf.reduce_mean(cross_entropy, name='loss')
+#        epsilon=1e-7        
+#        preds = tf.cast(tf.argmax(logits,1),tf.int32)
+#        pt = tf.where(tf.equal(labels, preds),logits, 1-logits)
+#        focal_loss = tf.reduce_mean(- alpha * tf.pow(1.-pt, gamma) * tf.log(tf.cast(labels,tf.float32)), name='focal_loss')
+#        loss = L2_loss + focal_loss
         loss = L2_loss + cross_entropy_loss
         tf.summary.scalar(scope.name+'/L2_loss', L2_loss)
         tf.summary.scalar(scope.name+'/loss', loss)
-    return cross_entropy_loss
+    return loss
 
 #%%
 def center_loss(features, labels, alpha, num_classes):
     len_features = features.get_shape()[1]
     
+    labels = tf.argmax(labels,1)
     centers = tf.get_variable('centers',[num_classes,len_features],dtype=tf.float32,
                               initializer=tf.constant_initializer(0),trainable=False)
     labels = tf.reshape(labels,[-1])
@@ -125,6 +134,8 @@ def evaluation(logits, labels):
     that were predicted correctly.
   """
   with tf.variable_scope('accuracy') as scope:
+      
+      labels = tf.argmax(labels,1) #      one-hot encoder
       correct = tf.nn.in_top_k(logits, labels, k=1)
       correct = tf.cast(correct, tf.float16)
       accuracy = tf.reduce_mean(correct)
