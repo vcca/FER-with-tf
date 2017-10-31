@@ -20,7 +20,7 @@ def getfrom_raf(file,is_train,ratio=0):
                 true_label = int(line.split(' ')[1][-2])
                 labels = np.append(labels, true_label)
 #                添加正负表情labels
-                if true_label==1 or true_label==5 or true_label==7:
+                if true_label==1 or true_label==4 or true_label==7:
                     pnlabels = np.append(pnlabels, 0)
                 else:
                     pnlabels = np.append(pnlabels, 1)
@@ -31,7 +31,7 @@ def getfrom_raf(file,is_train,ratio=0):
                 true_label = int(line.split(' ')[1][-2])
                 labels = np.append(labels, true_label)
 #                添加test正负表情labels
-                if true_label==1 or true_label==5 or true_label==7:
+                if true_label==1 or true_label==4 or true_label==7:
                     pnlabels = np.append(pnlabels, 0)
                 else:
                     pnlabels = np.append(pnlabels, 1)
@@ -155,8 +155,17 @@ def get_batch(image,label,batch_size,is_train):
 #    separate the label_batch
     ex_label_batch = label_batch[:,0]
     pn_label_batch = label_batch[:,1]
-    ex_label_batch = tf.reshape(ex_label_batch, [batch_size])
-    pn_label_batch = tf.reshape(pn_label_batch, [batch_size])
+#    one-hot encoder
+    ex_classes = 7
+    pn_classes = 2
+    ex_label_batch = tf.one_hot(ex_label_batch, depth=ex_classes)
+    pn_label_batch = tf.one_hot(pn_label_batch, depth=pn_classes)
+    
+    ex_label_batch = tf.reshape(ex_label_batch, [batch_size,ex_classes])
+    pn_label_batch = tf.reshape(pn_label_batch, [batch_size,pn_classes])
+   
+#    ex_label_batch = tf.reshape(ex_label_batch, [batch_size])
+#    pn_label_batch = tf.reshape(pn_label_batch, [batch_size])
     image_batch = tf.cast(image_batch, tf.float32)
     
     return image_batch, ex_label_batch, pn_label_batch
